@@ -481,27 +481,28 @@ blockToLaTeX (Table caption aligns widths heads rows) = do
                       (tableRowToLaTeX True aligns widths) heads
   let endhead = if all null heads
                    then empty
-                   else text "\\endhead"
+                   else empty
   captionText <- inlineListToLaTeX caption
   let capt = if isEmpty captionText
                 then empty
                 else text "\\caption" <> braces captionText
-                         <> "\\tabularnewline\n\\toprule\n"
-                         <> headers
-                         <> "\\endfirsthead"
   rows' <- mapM (tableRowToLaTeX False aligns widths) rows
   let colDescriptors = text $ concat $ map toColDescriptor aligns
   modify $ \s -> s{ stTable = True }
-  return $ "\\begin{longtable}[c]" <>
+  return $ "\\begin{table}"
+         $$ capt
+         $$ "\\begin{ruledtabular}"
+         $$ "\\begin{tabular}" <>
               braces ("@{}" <> colDescriptors <> "@{}")
               -- the @{} removes extra space at beginning and end
-         $$ capt
-         $$ "\\toprule"
+         -- $$ "\\toprule"
          $$ headers
-         $$ endhead
+         -- $$ endhead
          $$ vcat rows'
-         $$ "\\bottomrule"
-         $$ "\\end{longtable}"
+         -- $$ "\\bottomrule"
+         $$ "\\end{tabular}"
+         $$ "\\end{ruledtabular}"
+         $$ "\\end{table}"
 
 toColDescriptor :: Alignment -> String
 toColDescriptor align =
@@ -525,7 +526,7 @@ tableRowToLaTeX header aligns widths cols = do
   let scaleFactor = 0.97 ** fromIntegral (length aligns)
   let widths' = map (scaleFactor *) widths
   cells <- mapM (tableCellToLaTeX header) $ zip3 widths' aligns cols
-  return $ hsep (intersperse "&" cells) <> "\\tabularnewline"
+  return $ hsep (intersperse "&" cells) <> "\\\\"
 
 -- For simple latex tables (without minipages or parboxes),
 -- we need to go to some lengths to get line breaks working:
@@ -550,20 +551,24 @@ tableCellToLaTeX :: Bool -> (Double, Alignment, [Block])
 tableCellToLaTeX _      (0,     _,     blocks) =
   blockListToLaTeX $ walk fixLineBreaks blocks
 tableCellToLaTeX header (width, align, blocks) = do
-  modify $ \st -> st{ stInMinipage = True, stNotes = [] }
+  modify $ \st -> st{ stInMinipage = if header then True else False, stNotes = [] }
   cellContents <- blockListToLaTeX blocks
   notes <- gets stNotes
-  modify $ \st -> st{ stInMinipage = False, stNotes = [] }
-  let valign = text $ if header then "[b]" else "[t]"
-  let halign = case align of
-               AlignLeft    -> "\\raggedright"
-               AlignRight   -> "\\raggedleft"
-               AlignCenter  -> "\\centering"
-               AlignDefault -> "\\raggedright"
-  return $ ("\\begin{minipage}" <> valign <>
+  modify $ \st -> st{ stInMinipage = if header then True else False, stNotes = [] }
+  -- let valign = text $ if header then "[b]" else "[t]"
+  -- let halign = case align of
+  --              AlignLeft    -> "\\raggedright"
+  --              AlignRight   -> "\\raggedleft"
+  --              AlignCenter  -> "\\centering"
+  --              AlignDefault -> "\\raggedright"
+  -- return $ ("\\begin{minipage}" <> valign <>
+  --           braces (text (printf "%.2f\\columnwidth" width)) <>
+  --           (halign <> "\\strut" <> cr <> cellContents <> cr) <>
+  --           "\\strut\\end{minipage}")
+  return $ ("\\begin{minipage}" <>
             braces (text (printf "%.2f\\columnwidth" width)) <>
-            (halign <> "\\strut" <> cr <> cellContents <> cr) <>
-            "\\strut\\end{minipage}")
+            ( cr <> cellContents <> cr) <>
+            "\\end{minipage}")
           $$ case notes of
                   [] -> empty
                   ns -> (case length ns of
