@@ -778,9 +778,9 @@ inlineToLaTeX (Quoted qt lst) = do
                       else char '\x2018' <> inner <> char '\x2019'
 inlineToLaTeX (Str str) = liftM text $ stringToLaTeX TextString str
 inlineToLaTeX (Math InlineMath str) =
-  return $ "\\(" <> text str <> "\\)"
+  return $ "$" <> text str <> "$"
 inlineToLaTeX (Math DisplayMath str) =
-  return $ "\\[" <> text str <> "\\]"
+  return $ "\\begin{align}" <> text str <> "\\end{align}"
 inlineToLaTeX (RawInline f str)
   | f == Format "latex" || f == Format "tex"
                         = return $ text str
